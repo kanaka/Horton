@@ -26,16 +26,16 @@ struct timeval tv1,tv2;
 
 
 /* +1 to allow for right and bottom edge conditions */
-char board[SIZE_X/4+1][SIZE_Y/2+1];
+unsigned char board[SIZE_X/4+1][SIZE_Y/2+1];
 
 /* Lookup (read) cache */
-char bcol1[SIZE_Y/2+2];
-char bcol2[SIZE_Y/2+2];
-char bcol3[SIZE_Y/2+2];
+unsigned char bcol1[SIZE_Y/2+2];
+unsigned char bcol2[SIZE_Y/2+2];
+unsigned char bcol3[SIZE_Y/2+2];
 /* Store (write) cache */
-char ncol1[SIZE_Y/2];
-char ncol2[SIZE_Y/2];
-char ncol3[SIZE_Y/2];
+unsigned char ncol1[SIZE_Y/2];
+unsigned char ncol2[SIZE_Y/2];
+unsigned char ncol3[SIZE_Y/2];
 
 
 
@@ -60,13 +60,31 @@ int count_neighbors(int bit_array[6][4], int x, int y) {
  * The input block is 24 bits (unsigned int)
  * The output block is 8 bits (char)
  * an char (8 bits) */
-char calc_block(unsigned int input_area) 
+char calc_block(unsigned int opt_area) 
 {
+    unsigned int input_area;
     int input_cell[6][4];
     
     char result_block;
     int result_cell[4][2];
     int x,y,i;
+
+    /* Translate the optimized storage model into the 
+     * representational model */
+    input_area  = (opt_area  & 0x00000f) << 7;
+    input_area |= (opt_area  & 0x0000f0) << 9;
+    input_area |= (opt_area  & 0x000f00) >> 7;
+    input_area |= (opt_area  & 0x00f000) << 7;
+
+    input_area |= (opt_area  & 0x010000) >> 10;
+    input_area |= (opt_area  & 0x100000) >> 8;
+    input_area |= (opt_area  & 0x020000) >> 6;
+    input_area |= (opt_area  & 0x200000) >> 4;
+
+    input_area |= (opt_area  & 0x040000) >> 18;
+    input_area |= (opt_area  & 0x080000) >> 14;
+    input_area |= (opt_area  & 0x400000) >> 4;
+    input_area |= (opt_area  & 0x800000);
 
     /* Populate input_cell array from input_area*/
     for (x=0; x<6; x++) {
@@ -114,10 +132,30 @@ char calc_block(unsigned int input_area)
 
 print_area(unsigned int area)
 {
-    int x, y;
+    unsigned int input_area;
+    int x,y,i;
+
+    /* Translate the optimized storage model into the 
+     * representational model */
+    input_area  = (area  & 0x00000f) << 7;
+    input_area |= (area  & 0x0000f0) << 9;
+    input_area |= (area  & 0x000f00) >> 7;
+    input_area |= (area  & 0x00f000) << 7;
+
+    input_area |= (area  & 0x010000) >> 10;
+    input_area |= (area  & 0x100000) >> 8;
+    input_area |= (area  & 0x020000) >> 6;
+    input_area |= (area  & 0x200000) >> 4;
+
+    input_area |= (area  & 0x040000) >> 18;
+    input_area |= (area  & 0x080000) >> 14;
+    input_area |= (area  & 0x400000) >> 4;
+    input_area |= (area  & 0x800000);
+
+    /* Populate input_cell array from input_area*/
     for (y=0; y<4; y++) {
 	for (x=0; x<6; x++) {
-	    if ((area >> (y*6+x)) & 0x1) {
+	    if ((input_area >> (y*6+x)) & 0x1) {
 		printf("O");
 	    } else {
 		printf(".");
@@ -143,7 +181,7 @@ print_block(char block)
 }
 
 print_board_rect(
-    char grid[SIZE_X/4+1][SIZE_Y/2+1], 
+    unsigned char grid[SIZE_X/4+1][SIZE_Y/2+1], 
     unsigned int startx, 
     unsigned int starty, 
     unsigned int width, 
@@ -205,18 +243,6 @@ char * create_lookup_table(char * filename, int mode)
 	for (i=0; i<LOOKUP_TABLE_SIZE; i++) {
 	    if (i%(LOOKUP_TABLE_SIZE/10)==0) printf (".\n", i);
 	    table[i] =calc_block(i);
-	    if (i==1081352) {
-		//printf("table[i]==%d\n",table[i]);
-		//printf("i=%d\n", i);
-		j = calc_block(i);
-		//dummy(10);
-		puts("\n");
-		k = calc_block(i);
-		printf("At i==%d, block==%d, %d\n",i, j, k);
-		printf("i=%d\n", i);
-		//printf("At i==%d, block==%d, %d\n",i, calc_block(i),j);
-		printf("i=%d\n", i);
-	    }
 	}
     }
 
@@ -301,24 +327,21 @@ mate(char * lookup)
 	/* First inner loop */
 	bcopy(board[x+1], &bcol3[1], SIZE_Y/2);
 	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* TODO: Calculate area */
-	    area  = ((unsigned int)bcol2[y1]      & 0x0f) << 7;  /* bits 7-10 */
-	    area |= ((unsigned int)bcol2[y1]      & 0xf0) << 9;  /* bits 13-16 */
-	    area |= ((unsigned int)bcol2[y]       & 0xf0) >> 3;  /* bits 1-4 */
-	    area |= ((unsigned int)bcol2[y2]      & 0x0f) << 19; /* bits 19-22 */
+	    /* Calculate area value */
+	    area  =  (unsigned int)bcol2[y1];                /* bit 7-10, 13-16 */
+	    area |= ((unsigned int)bcol2[y]   & 0xf0) << 4;  /* bit 1-4 */
+	    area |= ((unsigned int)bcol2[y2]  & 0x0f) << 12; /* bit 19-22 */
 
-	    area |= ((unsigned int)bcol1[y1]      & 0x08) << 3;  /* bit 6 */
-	    area |= ((unsigned int)bcol1[y1]      & 0x80) << 5;  /* bit 12 */
-	    area |= ((unsigned int)bcol3[y1]      & 0x01) << 11; /* bit 11 */
-	    area |= ((unsigned int)bcol3[y1]      & 0x10) << 13; /* bit 17 */
+	    area |= ((unsigned int)bcol1[y1]  & 0x88) << 13; /* bit 6,12 */
+	    area |= ((unsigned int)bcol3[y1]  & 0x11) << 17; /* bit 11, 17 */
 
-	    area |= ((unsigned int)bcol1[y]       & 0x80) >> 7;  /* bit 0 */
-	    area |= ((unsigned int)bcol1[y2]      & 0x08) << 15; /* bit 18 */
-	    area |= ((unsigned int)bcol3[y]       & 0x10) << 1;  /* bit 5 */
-	    area |= ((unsigned int)bcol3[y2]      & 0x01) << 23; /* bit 23 */
+	    area |= ((unsigned int)bcol1[y]   & 0x80) << 11; /* bit 0 */
+	    area |= ((unsigned int)bcol1[y2]  & 0x08) << 19; /* bit 18 */
+	    area |= ((unsigned int)bcol3[y]   & 0x10) << 15; /* bit 5 */
+	    area |= ((unsigned int)bcol3[y2]  & 0x01) << 23; /* bit 23 */
 
 	    ncol1[y] = lookup[area]; 
-	}
+        }
 	
 	x++;
 	if (x>=(SIZE_X/4)) break;
@@ -326,21 +349,18 @@ mate(char * lookup)
 	/* Second inner loop */
 	bcopy(board[x+1], &bcol1[1], SIZE_Y/2);
 	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* TODO: Calculate area */
-	    area  = ((unsigned int)bcol3[y1]      & 0x0f) << 7;  /* bits 7-10 */
-	    area |= ((unsigned int)bcol3[y1]      & 0xf0) << 9;  /* bits 13-16 */
-	    area |= ((unsigned int)bcol3[y]       & 0xf0) >> 3;  /* bits 1-4 */
-	    area |= ((unsigned int)bcol3[y2]      & 0x0f) << 19; /* bits 19-22 */
+	    /* Calculate area value */
+	    area  =  (unsigned int)bcol3[y1];                /* bit 7-10, 13-16 */
+	    area |= ((unsigned int)bcol3[y]   & 0xf0) << 4;  /* bit 1-4 */
+	    area |= ((unsigned int)bcol3[y2]  & 0x0f) << 12; /* bit 19-22 */
 
-	    area |= ((unsigned int)bcol2[y1]      & 0x08) << 3;  /* bit 6 */
-	    area |= ((unsigned int)bcol2[y1]      & 0x80) << 5;  /* bit 12 */
-	    area |= ((unsigned int)bcol1[y1]      & 0x01) << 11; /* bit 11 */
-	    area |= ((unsigned int)bcol1[y1]      & 0x10) << 13; /* bit 17 */
+	    area |= ((unsigned int)bcol2[y1]  & 0x88) << 13; /* bit 6,12 */
+	    area |= ((unsigned int)bcol1[y1]  & 0x11) << 17; /* bit 11, 17 */
 
-	    area |= ((unsigned int)bcol2[y]       & 0x80) >> 7;  /* bit 0 */
-	    area |= ((unsigned int)bcol2[y2]      & 0x08) << 15; /* bit 18 */
-	    area |= ((unsigned int)bcol1[y]       & 0x10) << 1;  /* bit 5 */
-	    area |= ((unsigned int)bcol1[y2]      & 0x01) << 23; /* bit 23 */
+	    area |= ((unsigned int)bcol2[y]   & 0x80) << 11; /* bit 0 */
+	    area |= ((unsigned int)bcol2[y2]  & 0x08) << 19; /* bit 18 */
+	    area |= ((unsigned int)bcol1[y]   & 0x10) << 15; /* bit 5 */
+	    area |= ((unsigned int)bcol1[y2]  & 0x01) << 23; /* bit 23 */
 
 	    ncol2[y] = lookup[area]; 
 	}
@@ -351,21 +371,18 @@ mate(char * lookup)
 	/* Second inner loop */
 	bcopy(board[x+1], &bcol2[1], SIZE_Y/2);
 	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* TODO: Calculate area */
-	    area  = ((unsigned int)bcol1[y1]      & 0x0f) << 7;  /* bits 7-10 */
-	    area |= ((unsigned int)bcol1[y1]      & 0xf0) << 9;  /* bits 13-16 */
-	    area |= ((unsigned int)bcol1[y]       & 0xf0) >> 3;  /* bits 1-4 */
-	    area |= ((unsigned int)bcol1[y2]      & 0x0f) << 19; /* bits 19-22 */
+	    /* Calculate area value */
+	    area  =  (unsigned int)bcol1[y1];                /* bit 7-10, 13-16 */
+	    area |= ((unsigned int)bcol1[y]   & 0xf0) << 4;  /* bit 1-4 */
+	    area |= ((unsigned int)bcol1[y2]  & 0x0f) << 12; /* bit 19-22 */
 
-	    area |= ((unsigned int)bcol3[y1]      & 0x08) << 3;  /* bit 6 */
-	    area |= ((unsigned int)bcol3[y1]      & 0x80) << 5;  /* bit 12 */
-	    area |= ((unsigned int)bcol2[y1]      & 0x01) << 11; /* bit 11 */
-	    area |= ((unsigned int)bcol2[y1]      & 0x10) << 13; /* bit 17 */
+	    area |= ((unsigned int)bcol3[y1]  & 0x88) << 13; /* bit 6,12 */
+	    area |= ((unsigned int)bcol2[y1]  & 0x11) << 17; /* bit 11, 17 */
 
-	    area |= ((unsigned int)bcol3[y]       & 0x80) >> 7;  /* bit 0 */
-	    area |= ((unsigned int)bcol3[y2]      & 0x08) << 15; /* bit 18 */
-	    area |= ((unsigned int)bcol2[y]       & 0x10) << 1;  /* bit 5 */
-	    area |= ((unsigned int)bcol2[y2]       & 0x01) << 23; /* bit 23 */
+	    area |= ((unsigned int)bcol3[y]   & 0x80) << 11; /* bit 0 */
+	    area |= ((unsigned int)bcol3[y2]  & 0x08) << 19; /* bit 18 */
+	    area |= ((unsigned int)bcol2[y]   & 0x10) << 15; /* bit 5 */
+	    area |= ((unsigned int)bcol2[y2]  & 0x01) << 23; /* bit 23 */
 
 	    ncol3[y] = lookup[area]; 
 	}
@@ -388,22 +405,30 @@ main() {
 	return;
     }
 
-    printf("About to populate board\n");
+    /*
+    print_area(11790337);
+    print_block(lookup[11790337]);
+    */
+
+    printf("Populating board:\n");
     TIMER_CLEAR;
     TIMER_START;
     populate_board();
     TIMER_STOP;
 
-    printf("Populate TIME: %lf seconds\n",TIMER_ELAPSED);
+    printf("Populating TIME: %lf seconds\n",TIMER_ELAPSED);
 
     print_board_rect(board, 30, 30, 15, 10);
     printf("\n");
- 
-    printf("About to process board\n");
+
+    printf("Processing board:\n");
     TIMER_CLEAR;
     TIMER_START;
-    for (i=0; i<10; i++) {
+    for (i=0; i<20; i++) {
 	mate(lookup);
+	//print_board_rect(board, 30, 30, 15, 10);
+	//printf("\n");
+
     }
     TIMER_STOP;
     printf("Finished processing board\n");
@@ -411,7 +436,9 @@ main() {
     print_board_rect(board, 30, 30, 15, 10);
     printf("\n");
 
-    printf("Generate TIME: %lf seconds\n",TIMER_ELAPSED);
+    printf("Processing TIME: %lf seconds\n",TIMER_ELAPSED);
+    printf("Processed %d generations, each averaged: %lf seconds\n",
+	   i, TIMER_ELAPSED/i);
 
     destroy_lookup_table(lookup, 1);
 }
