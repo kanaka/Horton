@@ -29,9 +29,9 @@ struct timeval tv1,tv2;
 unsigned char board[SIZE_X/4+1][SIZE_Y/2+1];
 
 /* Lookup (read) cache */
-unsigned char bcol1[SIZE_Y/2+2];
-unsigned char bcol2[SIZE_Y/2+2];
-unsigned char bcol3[SIZE_Y/2+2];
+unsigned char bcol1[SIZE_Y/2+4]; /* One extra at the top and three at the bottom */
+unsigned char bcol2[SIZE_Y/2+4];
+unsigned char bcol3[SIZE_Y/2+4];
 /* Store (write) cache */
 unsigned char ncol1[SIZE_Y/2];
 unsigned char ncol2[SIZE_Y/2];
@@ -71,20 +71,20 @@ char calc_block(unsigned int opt_area)
 
     /* Translate the optimized storage model into the 
      * representational model */
-    input_area  = (opt_area  & 0x00000f) << 7;
-    input_area |= (opt_area  & 0x0000f0) << 9;
-    input_area |= (opt_area  & 0x000f00) >> 7;
-    input_area |= (opt_area  & 0x00f000) << 7;
+    input_area  = (opt_area  & 0x0000f0) << 3;  /* bits 7-10 */
+    input_area |= (opt_area  & 0x000f00) << 5;  /* bits 11-16 */
+    input_area |= (opt_area  & 0x00000f) << 1;  /* bits 1-4 */
+    input_area |= (opt_area  & 0x00f000) << 7;  /* bits 19-22 */
 
-    input_area |= (opt_area  & 0x010000) >> 10;
-    input_area |= (opt_area  & 0x100000) >> 8;
-    input_area |= (opt_area  & 0x020000) >> 6;
-    input_area |= (opt_area  & 0x200000) >> 4;
+    input_area |= (opt_area  & 0x010000) >> 11; /* bit 5 */
+    input_area |= (opt_area  & 0x020000) >> 11; /* bit 6 */
+    input_area |= (opt_area  & 0x040000) >> 1;  /* bit 17 */
+    input_area |= (opt_area  & 0x080000) >> 19; /* bit 0 */
 
-    input_area |= (opt_area  & 0x040000) >> 18;
-    input_area |= (opt_area  & 0x080000) >> 14;
-    input_area |= (opt_area  & 0x400000) >> 4;
-    input_area |= (opt_area  & 0x800000);
+    input_area |= (opt_area  & 0x100000) >> 9;  /* bit 11 */
+    input_area |= (opt_area  & 0x200000) >> 9;  /* bit 12 */
+    input_area |= (opt_area  & 0x400000) << 1;  /* bit 23 */
+    input_area |= (opt_area  & 0x800000) >> 5;  /* bit 18 */
 
     /* Populate input_cell array from input_area*/
     for (x=0; x<6; x++) {
@@ -130,27 +130,27 @@ char calc_block(unsigned int opt_area)
     return(result_block);
 }
 
-print_area(unsigned int area)
+print_area(unsigned int opt_area)
 {
     unsigned int input_area;
     int x,y,i;
 
     /* Translate the optimized storage model into the 
      * representational model */
-    input_area  = (area  & 0x00000f) << 7;
-    input_area |= (area  & 0x0000f0) << 9;
-    input_area |= (area  & 0x000f00) >> 7;
-    input_area |= (area  & 0x00f000) << 7;
+    input_area  = (opt_area  & 0x0000f0) << 3;  /* bits 7-10 */
+    input_area |= (opt_area  & 0x000f00) << 5;  /* bits 11-16 */
+    input_area |= (opt_area  & 0x00000f) << 1;  /* bits 1-4 */
+    input_area |= (opt_area  & 0x00f000) << 7;  /* bits 19-22 */
 
-    input_area |= (area  & 0x010000) >> 10;
-    input_area |= (area  & 0x100000) >> 8;
-    input_area |= (area  & 0x020000) >> 6;
-    input_area |= (area  & 0x200000) >> 4;
+    input_area |= (opt_area  & 0x010000) >> 11; /* bit 5 */
+    input_area |= (opt_area  & 0x020000) >> 11; /* bit 6 */
+    input_area |= (opt_area  & 0x040000) >> 1;  /* bit 17 */
+    input_area |= (opt_area  & 0x080000) >> 19; /* bit 0 */
 
-    input_area |= (area  & 0x040000) >> 18;
-    input_area |= (area  & 0x080000) >> 14;
-    input_area |= (area  & 0x400000) >> 4;
-    input_area |= (area  & 0x800000);
+    input_area |= (opt_area  & 0x100000) >> 9;  /* bit 11 */
+    input_area |= (opt_area  & 0x200000) >> 9;  /* bit 12 */
+    input_area |= (opt_area  & 0x400000) << 1;  /* bit 23 */
+    input_area |= (opt_area  & 0x800000) >> 5;  /* bit 18 */
 
     /* Populate input_cell array from input_area*/
     for (y=0; y<4; y++) {
@@ -204,14 +204,6 @@ print_board_rect(
 	    printf("\n");
 	}
     }
-}
-
-dummy(unsigned int x)
-{
-    int i=x;
-    i=i+x;
-    puts("\n");
-    return;
 }
 
 /* 
@@ -312,80 +304,59 @@ populate_board()
 
 mate(char * lookup)
 {
-    unsigned int x,y,y1,y2;
-    unsigned int area;
+    unsigned int x,y;
+    unsigned int area, area2;
+    __unaligned register unsigned int *colptr1,*colptr2, *colptr3;
 
     /* Set the block values for outside edges */
-    bzero(bcol1, SIZE_Y/2+2);
+    bzero(bcol1, SIZE_Y/2+4);
     bcopy(board[0], &bcol2[1], SIZE_Y/2);
     bcol2[0] =0;
     bcol2[SIZE_Y/2+1] =0;
+    bcol2[SIZE_Y/2+2] =0;
+    bcol2[SIZE_Y/2+3] =0;
     bcol3[0] =0;
     bcol3[SIZE_Y/2+1] =0;
+    bcol3[SIZE_Y/2+2] =0;
+    bcol3[SIZE_Y/2+3] =0;
     for (x=0; x<SIZE_X/4; x++) {
 
-	/* First inner loop */
-	bcopy(board[x+1], &bcol3[1], SIZE_Y/2);
-	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* Calculate area value */
-	    area  =  (unsigned int)bcol2[y1];                /* bit 7-10, 13-16 */
-	    area |= ((unsigned int)bcol2[y]   & 0xf0) << 4;  /* bit 1-4 */
-	    area |= ((unsigned int)bcol2[y2]  & 0x0f) << 12; /* bit 19-22 */
-
-	    area |= ((unsigned int)bcol1[y1]  & 0x88) << 13; /* bit 6,12 */
-	    area |= ((unsigned int)bcol3[y1]  & 0x11) << 17; /* bit 11, 17 */
-
-	    area |= ((unsigned int)bcol1[y]   & 0x80) << 11; /* bit 0 */
-	    area |= ((unsigned int)bcol1[y2]  & 0x08) << 19; /* bit 18 */
-	    area |= ((unsigned int)bcol3[y]   & 0x10) << 15; /* bit 5 */
-	    area |= ((unsigned int)bcol3[y2]  & 0x01) << 23; /* bit 23 */
-
-	    ncol1[y] = lookup[area]; 
+#define CALC_COL(NN1, NN2, NN3) \
+	bcopy(board[x+1], &bcol##NN3[1], SIZE_Y/2); \
+	colptr1 = (unsigned int *)bcol##NN1; \
+	colptr2 = (unsigned int *)bcol##NN2; \
+	colptr3 = (unsigned int *)bcol##NN3; \
+	for (y=0; y<SIZE_Y/2; y++) { \
+	    /* Calculate area value */ \
+	    area2  = (*colptr1 & 0x088880) | (*colptr3 & 0x011110); \
+	    ncol##NN1[y] = lookup[ \
+	    ((area2 & 0x019800) << 6) | \
+	    ((area2 & 0x000190) << 12) | \
+	    ((area2 & 0x080000) << 4) | \
+	    ((*colptr2 & 0x0ffff0) >> 4)]; \
+	    colptr1 = (unsigned int *) ((char *) colptr1 + 1); \
+	    colptr2 = (unsigned int *) ((char *) colptr2 + 1); \
+	    colptr3 = (unsigned int *) ((char *) colptr3 + 1); \
         }
-	
+
+	CALC_COL(1,2,3);
+
 	x++;
-	if (x>=(SIZE_X/4)) break;
-
-	/* Second inner loop */
-	bcopy(board[x+1], &bcol1[1], SIZE_Y/2);
-	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* Calculate area value */
-	    area  =  (unsigned int)bcol3[y1];                /* bit 7-10, 13-16 */
-	    area |= ((unsigned int)bcol3[y]   & 0xf0) << 4;  /* bit 1-4 */
-	    area |= ((unsigned int)bcol3[y2]  & 0x0f) << 12; /* bit 19-22 */
-
-	    area |= ((unsigned int)bcol2[y1]  & 0x88) << 13; /* bit 6,12 */
-	    area |= ((unsigned int)bcol1[y1]  & 0x11) << 17; /* bit 11, 17 */
-
-	    area |= ((unsigned int)bcol2[y]   & 0x80) << 11; /* bit 0 */
-	    area |= ((unsigned int)bcol2[y2]  & 0x08) << 19; /* bit 18 */
-	    area |= ((unsigned int)bcol1[y]   & 0x10) << 15; /* bit 5 */
-	    area |= ((unsigned int)bcol1[y2]  & 0x01) << 23; /* bit 23 */
-
-	    ncol2[y] = lookup[area]; 
+	if (x>=(SIZE_X/4)) {
+	    bcopy(ncol1, board[x-1], SIZE_Y/2);
+	    break;
 	}
-	
+
+	CALC_COL(2,3,1);
+
 	x++;
-	if (x>=(SIZE_X/4)) break;
-
-	/* Second inner loop */
-	bcopy(board[x+1], &bcol2[1], SIZE_Y/2);
-	for (y=0,y1=1,y2=2; y<SIZE_Y/2; y++, y1++, y2++) {
-	    /* Calculate area value */
-	    area  =  (unsigned int)bcol1[y1];                /* bit 7-10, 13-16 */
-	    area |= ((unsigned int)bcol1[y]   & 0xf0) << 4;  /* bit 1-4 */
-	    area |= ((unsigned int)bcol1[y2]  & 0x0f) << 12; /* bit 19-22 */
-
-	    area |= ((unsigned int)bcol3[y1]  & 0x88) << 13; /* bit 6,12 */
-	    area |= ((unsigned int)bcol2[y1]  & 0x11) << 17; /* bit 11, 17 */
-
-	    area |= ((unsigned int)bcol3[y]   & 0x80) << 11; /* bit 0 */
-	    area |= ((unsigned int)bcol3[y2]  & 0x08) << 19; /* bit 18 */
-	    area |= ((unsigned int)bcol2[y]   & 0x10) << 15; /* bit 5 */
-	    area |= ((unsigned int)bcol2[y2]  & 0x01) << 23; /* bit 23 */
-
-	    ncol3[y] = lookup[area]; 
+	if (x>=(SIZE_X/4)) {
+	    bcopy(ncol1, board[x-2], SIZE_Y/2);
+	    bcopy(ncol2, board[x-1], SIZE_Y/2);
+	    break;
 	}
+
+	CALC_COL(3,1,2);
 
 	bcopy(ncol1, board[x-2], SIZE_Y/2);
 	bcopy(ncol2, board[x-1], SIZE_Y/2);
@@ -397,7 +368,9 @@ mate(char * lookup)
 main() {
     unsigned int i,j;
     char * lookup;
-    char tmp;
+    float total_time=0.0;
+    float min_time=10000.0;
+    float max_time=0.0;
 
     lookup = create_lookup_table("lookup.tbl", 1);
     if (! lookup ) {
@@ -405,40 +378,49 @@ main() {
 	return;
     }
 
-    /*
-    print_area(11790337);
-    print_block(lookup[11790337]);
-    */
+/*
+    print_area(1656032);
+    print_block(lookup[1656032]);
+    printf("\n");
+*/
 
     printf("Populating board:\n");
     TIMER_CLEAR;
     TIMER_START;
     populate_board();
     TIMER_STOP;
-
     printf("Populating TIME: %lf seconds\n",TIMER_ELAPSED);
 
-    print_board_rect(board, 30, 30, 15, 10);
+    
+    print_board_rect(board, 2485, 4990, 15, 10);
     printf("\n");
-
     printf("Processing board:\n");
-    TIMER_CLEAR;
-    TIMER_START;
     for (i=0; i<20; i++) {
+	TIMER_CLEAR;
+	TIMER_START;
 	mate(lookup);
-	//print_board_rect(board, 30, 30, 15, 10);
-	//printf("\n");
+	TIMER_STOP;
+	total_time += TIMER_ELAPSED;
+	if (TIMER_ELAPSED > max_time)
+	    max_time = TIMER_ELAPSED;
+	if (TIMER_ELAPSED < min_time)
+	    min_time = TIMER_ELAPSED;
+//	print_board_rect(board, 2485, 4990, 16, 11);
+	printf("Generation %d took %lf seconds\n",i+1, TIMER_ELAPSED);
 
     }
-    TIMER_STOP;
     printf("Finished processing board\n");
-
-    print_board_rect(board, 30, 30, 15, 10);
+    print_board_rect(board, 2485, 4990, 15, 10);
     printf("\n");
 
-    printf("Processing TIME: %lf seconds\n",TIMER_ELAPSED);
-    printf("Processed %d generations, each averaged: %lf seconds\n",
-	   i, TIMER_ELAPSED/i);
+    printf("All generations time:    %10lf seconds (%d generations)\n",
+	   total_time,i);
+    printf("Max generation time:     %10lf seconds\n",
+	   max_time);
+    printf("Min generation time:     %10lf seconds\n",
+	   min_time);
+    printf("Average generation time: %10lf seconds\n",
+	   total_time/i);
 
     destroy_lookup_table(lookup, 1);
 }

@@ -1,0 +1,41 @@
+Original Arrangment:
+
+1)
+All generations time:    143.647125 seconds (100 generations)
+Max generation time:      14.839936 seconds
+Min generation time:       0.997072 seconds
+Average generation time:   1.436471 seconds
+
+2)
+All generations time:    141.478409 seconds (100 generations)
+Max generation time:      14.526640 seconds
+Min generation time:       0.936560 seconds
+Average generation time:   1.414784 seconds
+
+3)
+All generations time:    137.106918 seconds (100 generations)
+Max generation time:       2.749568 seconds
+Min generation time:       1.022448 seconds
+Average generation time:   1.371069 seconds
+
+
+New bit arrangement:
+
+1)
+All generations time:    152.350739 seconds (100 generations)
+Max generation time:      16.189344 seconds
+Min generation time:       0.995120 seconds
+Average generation time:   1.523507 seconds
+
+2)
+All generations time:    139.587509 seconds (100 generations)
+Max generation time:       2.688080 seconds
+Min generation time:       1.066368 seconds
+Average generation time:   1.395875 seconds
+
+3)
+All generations time:    139.316757 seconds (100 generations)
+Max generation time:       2.775520 seconds
+Min generation time:       1.059536 seconds
+Average generation time:   1.393168 seconds
+
