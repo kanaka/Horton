@@ -1,4 +1,6 @@
-/* Optimized Conway's Game of Life
+/* Horton: Optimized Conway's Game of Life Engine
+ * Copyright (C) 2003-2004 Joel Martin
+ * Licensed under GPL-3 (see LICENSE.GPL-3)
  *
  * Board:
  * 	- 10,000 X 10,000 cells
