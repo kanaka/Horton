@@ -1,7 +1,7 @@
 ## Horton: Optimized Conway's Game of Life Engine
 
 Horton is a highly optimized engine for "playing" 
-(John Horton Conway's Game of Life)[http://en.wikipedia.org/wiki/Conway's_Game_of_Life].
+[John Horton Conwaye's Game of Life](http://en.wikipedia.org/wiki/Conway's_Game_of_Life).
 
 I originally created Horton because I had an interest in studying how
 genetic algorithms could be applied to cellular automata and Conway's
@@ -30,7 +30,7 @@ index to the 8-bit (4 x 2) child result. The lookup table is 16 MB
 
 #### Optimized representation
 
-Not every arangement living and dead cells is possible in the game
+Not every arangement of living and dead cells is possible in the game
 (after the initial state). In addition, different arrangement have
 a different probability of occuring. This means that some positions in
 the lookup table are accessed more often than others.
