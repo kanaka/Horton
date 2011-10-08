@@ -1,7 +1,7 @@
 ## Horton: Optimized Conway's Game of Life Engine
 
 Horton is a highly optimized engine for "playing" 
-[John Horton Conwaye's Game of Life](http://en.wikipedia.org/wiki/Conway's_Game_of_Life).
+[John Horton Conway's Game of Life](http://en.wikipedia.org/wiki/Conway's_Game_of_Life).
 
 I originally created Horton because I had an interest in studying how
 genetic algorithms could be applied to cellular automata and Conway's
